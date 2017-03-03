@@ -1,4 +1,5 @@
 import json
+import os
 from urllib.parse import urlencode
 import pymongo
 import requests
@@ -6,6 +7,8 @@ from bs4 import BeautifulSoup
 from requests.exceptions import ConnectionError
 import re
 from multiprocessing import Pool
+from hashlib import md5
+import threading
 
 MONGO_URL = 'localhost'
 MONGO_DB = 'Toutiao'
@@ -15,7 +18,7 @@ GROUP_START = 1
 GROUP_END = 20
 KEYWORD='街拍'
 
-client = pymongo.MongoClient(MONGO_URL)
+client = pymongo.MongoClient(MONGO_URL, connect=False)
 db = client[MONGO_DB]
 
 
@@ -40,6 +43,24 @@ def get_page_index(offset, keyword):
         print('Error occurred')
         return None
 
+def download_image(url):
+    print('Downloading', url)
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            save_image(response.content)
+        return None
+    except ConnectionError:
+        return None
+
+
+def save_image(content):
+    file_path = '{0}/{1}.{2}'.format(os.getcwd(), md5(content).hexdigest(), 'jpg')
+    print(file_path)
+    if not os.path.exists(file_path):
+        with open(file_path, 'wb') as f:
+            f.write(content)
+            f.close()
 
 def parse_page_index(text):
     data = json.loads(text)
@@ -70,6 +91,7 @@ def parse_page_detail(html, url):
         if data and 'sub_images' in data.keys():
             sub_images = data.get('sub_images')
             images = [item.get('url') for item in sub_images]
+            for image in images: download_image(image)
             return {
                 'title': title,
                 'url': url,
