@@ -8,15 +8,8 @@ from requests.exceptions import ConnectionError
 import re
 from multiprocessing import Pool
 from hashlib import md5
-import threading
-
-MONGO_URL = 'localhost'
-MONGO_DB = 'Toutiao'
-MONGO_TABLE = 'Toutiao'
-
-GROUP_START = 1
-GROUP_END = 20
-KEYWORD='街拍'
+from json.decoder import JSONDecodeError
+from config import *
 
 client = pymongo.MongoClient(MONGO_URL, connect=False)
 db = client[MONGO_DB]
@@ -43,6 +36,7 @@ def get_page_index(offset, keyword):
         print('Error occurred')
         return None
 
+
 def download_image(url):
     print('Downloading', url)
     try:
@@ -62,11 +56,15 @@ def save_image(content):
             f.write(content)
             f.close()
 
+
 def parse_page_index(text):
-    data = json.loads(text)
-    if data and 'data' in data.keys():
-        for item in data.get('data'):
-            yield item.get('article_url')
+    try:
+        data = json.loads(text)
+        if data and 'data' in data.keys():
+            for item in data.get('data'):
+                yield item.get('article_url')
+    except JSONDecodeError:
+        pass
 
 
 def get_page_detail(url):
@@ -114,6 +112,9 @@ def main(offset):
         result = parse_page_detail(html, url)
         if result: save_to_mongo(result)
 
+
 pool = Pool()
 groups = ([x * 20 for x in range(GROUP_START, GROUP_END + 1)])
 pool.map(main, groups)
+pool.close()
+pool.join()
