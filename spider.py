@@ -82,10 +82,10 @@ def parse_page_detail(html, url):
     soup = BeautifulSoup(html, 'lxml')
     result = soup.select('title')
     title = result[0].get_text() if result else ''
-    images_pattern = re.compile('var gallery = (.*?);', re.S)
+    images_pattern = re.compile('gallery: JSON.parse\("(.*)"\)', re.S)
     result = re.search(images_pattern, html)
     if result:
-        data = json.loads(result.group(1))
+        data = json.loads(result.group(1).replace('\\', ''))
         if data and 'sub_images' in data.keys():
             sub_images = data.get('sub_images')
             images = [item.get('url') for item in sub_images]
@@ -113,8 +113,9 @@ def main(offset):
         if result: save_to_mongo(result)
 
 
-pool = Pool()
-groups = ([x * 20 for x in range(GROUP_START, GROUP_END + 1)])
-pool.map(main, groups)
-pool.close()
-pool.join()
+if __name__ == '__main__':
+    pool = Pool()
+    groups = ([x * 20 for x in range(GROUP_START, GROUP_END + 1)])
+    pool.map(main, groups)
+    pool.close()
+    pool.join()
